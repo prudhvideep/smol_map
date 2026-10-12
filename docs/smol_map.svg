@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 730 290" width="730" height="290" role="img" aria-labelledby="title desc">
+<title id="title">SmolMap layout</title>
+<desc id="desc">A SmolMap with 10 slots: a bitmap of occupied slots above an array of key/value entries. put(1, 10) hashes to slot 5 and put(3, 30) to slot 2. put(6, 60) also hashes to slot 5, finds it taken by key 1, and probes right to slot 6.</desc>
+<style>
+  svg {
+    --bg: #ffffff; --fg: #1f2328; --muted: #656d76; --cell: #f6f8fa; --line: #d0d7de;
+    --on: #ddf4ff; --accent: #0969da; --warn: #bc4c00;
+  }
+  @media (prefers-color-scheme: dark) {
+    svg {
+      --bg: #0d1117; --fg: #e6edf3; --muted: #8d96a0; --cell: #161b22; --line: #30363d;
+      --on: #0c2d6b; --accent: #4493f8; --warn: #f0883e;
+    }
+  }
+  .bg { fill: var(--bg); }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .title { fill: var(--fg); font-size: 16px; font-weight: 600; }
+  .cap { fill: var(--fg); font-size: 13px; }
+  .label { fill: var(--fg); font-size: 14px; }
+  .sub { fill: var(--muted); font-size: 11px; }
+  .idx { fill: var(--muted); font-size: 12px; }
+  .note { fill: var(--muted); font-size: 12px; font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .cell { fill: var(--cell); stroke: var(--line); }
+  .on { fill: var(--on); stroke: var(--accent); }
+  .zero { fill: var(--muted); font-size: 13px; }
+  .one { fill: var(--accent); font-size: 13px; font-weight: 700; }
+  .empty { fill: var(--muted); font-size: 12px; }
+  .kv { fill: var(--fg); font-size: 12px; }
+  .ptr { fill: var(--accent); }
+  .arrow { fill: none; stroke: var(--warn); stroke-width: 2; }
+  .arrowhead { fill: var(--warn); }
+  .taken { fill: none; stroke: var(--warn); stroke-width: 2; }
+  text { text-anchor: middle; }
+  .left { text-anchor: start; }
+
+  /* Base styles are the final frame; animations start from the empty map. */
+  .anim { animation-duration: 14s; animation-iteration-count: infinite; animation-timing-function: ease-in-out; }
+  .ptr-g { opacity: 0; transform: translate(521px, 88px); animation-name: ptr; }
+  .taken { opacity: 0; animation-name: taken; }
+  .probe { animation-name: probe; }
+  .cap-a { opacity: 0; animation-name: cap-a; }
+  .cap-1 { opacity: 0; animation-name: cap-1; }
+  .cap-2 { opacity: 0; animation-name: cap-2; }
+  .cap-3 { opacity: 0; animation-name: cap-3; }
+  .cap-4 { opacity: 0; animation-name: cap-4; }
+  .cap-f { animation-name: cap-f; }
+
+  .fill-5 { animation-name: fill-5; }
+  @keyframes fill-5 { 0%, 14% { opacity: 0; } 16%, 94% { opacity: 1; } 96%, 100% { opacity: 0; } }
+  .fill-2 { animation-name: fill-2; }
+  @keyframes fill-2 { 0%, 33% { opacity: 0; } 35%, 94% { opacity: 1; } 96%, 100% { opacity: 0; } }
+  .fill-6 { animation-name: fill-6; }
+  @keyframes fill-6 { 0%, 65% { opacity: 0; } 67%, 94% { opacity: 1; } 96%, 100% { opacity: 0; } }
+  @keyframes probe { 0%, 59% { opacity: 0; } 61%, 94% { opacity: 1; } 96%, 100% { opacity: 0; } }
+  @keyframes cap-a { 0%, 6% { opacity: 1; } 7%, 95% { opacity: 0; } 97%, 100% { opacity: 1; } }
+  @keyframes cap-1 { 0%, 7% { opacity: 0; } 8%, 25% { opacity: 1; } 26%, 100% { opacity: 0; } }
+  @keyframes cap-2 { 0%, 26% { opacity: 0; } 27%, 43% { opacity: 1; } 44%, 100% { opacity: 0; } }
+  @keyframes cap-3 { 0%, 44% { opacity: 0; } 45%, 57% { opacity: 1; } 58%, 100% { opacity: 0; } }
+  @keyframes cap-4 { 0%, 58% { opacity: 0; } 59%, 75% { opacity: 1; } 76%, 100% { opacity: 0; } }
+  @keyframes cap-f { 0%, 76% { opacity: 0; } 77%, 94% { opacity: 1; } 95%, 100% { opacity: 0; } }
+  @keyframes taken { 0%, 47% { opacity: 0; } 48%, 56% { opacity: 1; } 57%, 100% { opacity: 0; } }
+  @keyframes ptr {
+    0%, 7% { opacity: 0; transform: translate(467px, 88px); }
+    9%, 27% { opacity: 1; transform: translate(467px, 88px); }
+    29%, 45% { opacity: 1; transform: translate(305px, 88px); }
+    47%, 59% { opacity: 1; transform: translate(467px, 88px); }
+    61%, 76% { opacity: 1; transform: translate(521px, 88px); }
+    78%, 100% { opacity: 0; transform: translate(521px, 88px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .anim { animation: none; }
+  }
+</style>
+<rect class="bg" width="730" height="290" rx="12"/>
+<text class="mono title left" x="24" y="36">SmolMap&lt;i32, i32, 10, 1&gt;</text>
+<text class="mono cap left anim cap-a" x="24" y="66">empty map: every bit in slots is 0</text>
+<text class="mono cap left anim cap-1" x="24" y="66">put(1, 10): hash(1) % 10 = 5 → slot 5 is free</text>
+<text class="mono cap left anim cap-2" x="24" y="66">put(3, 30): hash(3) % 10 = 2 → slot 2 is free</text>
+<text class="mono cap left anim cap-3" x="24" y="66">put(6, 60): hash(6) % 10 = 5 → slot 5 already holds key 1</text>
+<text class="mono cap left anim cap-4" x="24" y="66">probe right → slot 6 is free, so key 6 goes there</text>
+<text class="mono cap left anim cap-f" x="24" y="66">keys 1 and 6 share home slot 5; key 6 sits one slot to the right</text>
+<text class="mono label left" x="24" y="143">slots</text>
+<text class="mono sub left" x="24" y="157">[u64; M] bitmap</text>
+<text class="mono label left" x="24" y="193">entries</text>
+<text class="mono sub left" x="24" y="209">[(K, V); N]</text>
+<text class="mono idx" x="197" y="118">0</text>
+<rect class="cell" x="172" y="128" width="50" height="34" rx="4"/>
+<text class="mono zero" x="197" y="150">0</text>
+<rect class="cell" x="172" y="176" width="50" height="40" rx="4"/>
+<text class="mono empty" x="197" y="201">–</text>
+<text class="mono idx" x="251" y="118">1</text>
+<rect class="cell" x="226" y="128" width="50" height="34" rx="4"/>
+<text class="mono zero" x="251" y="150">0</text>
+<rect class="cell" x="226" y="176" width="50" height="40" rx="4"/>
+<text class="mono empty" x="251" y="201">–</text>
+<text class="mono idx" x="305" y="118">2</text>
+<rect class="cell" x="280" y="128" width="50" height="34" rx="4"/>
+<text class="mono zero" x="305" y="150">0</text>
+<rect class="cell" x="280" y="176" width="50" height="40" rx="4"/>
+<text class="mono empty" x="305" y="201">–</text>
+<text class="mono idx" x="359" y="118">3</text>
+<rect class="cell" x="334" y="128" width="50" height="34" rx="4"/>
+<text class="mono zero" x="359" y="150">0</text>
+<rect class="cell" x="334" y="176" width="50" height="40" rx="4"/>
+<text class="mono empty" x="359" y="201">–</text>
+<text class="mono idx" x="413" y="118">4</text>
+<rect class="cell" x="388" y="128" width="50" height="34" rx="4"/>
+<text class="mono zero" x="413" y="150">0</text>
+<rect class="cell" x="388" y="176" width="50" height="40" rx="4"/>
+<text class="mono empty" x="413" y="201">–</text>
+<text class="mono idx" x="467" y="118">5</text>
+<rect class="cell" x="442" y="128" width="50" height="34" rx="4"/>
+<text class="mono zero" x="467" y="150">0</text>
+<rect class="cell" x="442" y="176" width="50" height="40" rx="4"/>
+<text class="mono empty" x="467" y="201">–</text>
+<text class="mono idx" x="521" y="118">6</text>
+<rect class="cell" x="496" y="128" width="50" height="34" rx="4"/>
+<text class="mono zero" x="521" y="150">0</text>
+<rect class="cell" x="496" y="176" width="50" height="40" rx="4"/>
+<text class="mono empty" x="521" y="201">–</text>
+<text class="mono idx" x="575" y="118">7</text>
+<rect class="cell" x="550" y="128" width="50" height="34" rx="4"/>
+<text class="mono zero" x="575" y="150">0</text>
+<rect class="cell" x="550" y="176" width="50" height="40" rx="4"/>
+<text class="mono empty" x="575" y="201">–</text>
+<text class="mono idx" x="629" y="118">8</text>
+<rect class="cell" x="604" y="128" width="50" height="34" rx="4"/>
+<text class="mono zero" x="629" y="150">0</text>
+<rect class="cell" x="604" y="176" width="50" height="40" rx="4"/>
+<text class="mono empty" x="629" y="201">–</text>
+<text class="mono idx" x="683" y="118">9</text>
+<rect class="cell" x="658" y="128" width="50" height="34" rx="4"/>
+<text class="mono zero" x="683" y="150">0</text>
+<rect class="cell" x="658" y="176" width="50" height="40" rx="4"/>
+<text class="mono empty" x="683" y="201">–</text>
+<g class="anim fill-5">
+  <rect class="on" x="442" y="128" width="50" height="34" rx="4"/>
+  <text class="mono one" x="467" y="150">1</text>
+  <rect class="on" x="442" y="176" width="50" height="40" rx="4"/>
+  <text class="mono kv" x="467" y="201">(1,10)</text>
+</g>
+<g class="anim fill-2">
+  <rect class="on" x="280" y="128" width="50" height="34" rx="4"/>
+  <text class="mono one" x="305" y="150">1</text>
+  <rect class="on" x="280" y="176" width="50" height="40" rx="4"/>
+  <text class="mono kv" x="305" y="201">(3,30)</text>
+</g>
+<g class="anim fill-6">
+  <rect class="on" x="496" y="128" width="50" height="34" rx="4"/>
+  <text class="mono one" x="521" y="150">1</text>
+  <rect class="on" x="496" y="176" width="50" height="40" rx="4"/>
+  <text class="mono kv" x="521" y="201">(6,60)</text>
+</g>
+<rect class="anim taken" x="439" y="125" width="56" height="94" rx="6"/>
+<g class="anim probe">
+  <path class="arrow" d="M 467 220 Q 494 250 519 228"/>
+  <polygon class="arrowhead" points="523,220 512,226 522,233"/>
+</g>
+<g class="anim ptr-g"><polygon class="ptr" points="-7,0 7,0 0,10"/></g>
+<text class="note left" x="24" y="276">Bit i of slots is 1 when entries[i] is in use. On a collision, put probes right to the next free slot.</text>
+</svg>

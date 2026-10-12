@@ -39,16 +39,24 @@ where
     K: Copy + Default + Hash + Eq,
     V: Copy + Default,
 {
+    // Checks the occupancy of an index in the bitmask
     #[inline]
     fn is_occupied(&self, i: usize) -> bool {
         ((self.slots[i / 64] >> (i % 64)) & 1) == 1
     }
 
+    // Sets the bit in the bimask corresponding to the entry
     #[inline]
     fn set_occupied(&mut self, i: usize) {
         self.slots[i / 64] |= 1 << (i % 64);
     }
 
+    #[inline]
+    fn set_vacant(&mut self, i:usize) {
+        self.slots[i/64] &= !(1 << (i % 64)); 
+    }
+
+    // Returns the index at which 
     #[inline]
     fn get_hash_idx(k: K) -> usize {
         let mut hasher = FxHasher::default();
@@ -88,8 +96,7 @@ where
 
         (start..N)
             .chain(0..start)
-            .take_while(|&i| self.is_occupied(i))
-            .find(|&i| self.entries[i].0 == k)
+            .find(|&i| self.is_occupied(i) && self.entries[i].0 == k)
             .map(|i| self.entries[i].1)
     }
 
@@ -102,14 +109,30 @@ where
         V: Copy + Default,
     {
         let start = Self::get_hash_idx(k);
+        let probe = (start..N).chain(0..start);
+
+        let idx = probe
+            .clone()
+            .find(|&i| self.entries[i].0 == k && self.is_occupied(i))
+            .or_else(|| probe.clone().find(|&i| !self.is_occupied(i)))?;
+
+        self.entries[idx] = (k,v);
+        self.set_occupied(idx);
+
+        Some(idx)
+    }
+
+    /// removes the mapping k,v if k is present in the map
+    #[inline]
+    pub fn remove(&mut self, k : K) -> Option<V> {
+        let start = Self::get_hash_idx(k);
         let pos = (start..N)
             .chain(0..start)
-            .find(|&i| !self.is_occupied(i) || self.entries[i].0 == k)?;
+            .find(|&i| self.is_occupied(i) && self.entries[i].0 == k)?;
+       
+        self.set_vacant(pos);
 
-        self.entries[pos] = (k,v);
-        self.set_occupied(pos);
-
-        Some(pos)
+        Some(self.entries[pos].1)
     }
 
     /// returns an iterator of occupied tuples
@@ -227,5 +250,184 @@ mod test {
 
         assert_eq!(map.get(1),Some(2));
         assert_eq!(map.get(2),Some(3));
+    }
+
+    #[test]
+    fn test_remove() {
+        let mut map = smol_map!(i32,i32,10);
+
+        for i in 1..=9 {
+            map.put(i, i+10);
+        }
+
+        assert_eq!(map.get(1), Some(11));
+
+        map.remove(1);
+
+        assert_eq!(map.get(1), None);
+    }
+
+    #[test]
+    fn test_remove_preserves_others() {
+        let mut map = smol_map!(i32, i32, 10);
+        for i in 1..=9 {
+            map.put(i, i + 10);
+        }
+
+        assert_eq!(map.remove(1), Some(11));
+        assert_eq!(map.get(1), None);
+        // every other entry must survive the removal
+        for i in 2..=9 {
+            assert_eq!(map.get(i), Some(i + 10));
+        }
+        assert_eq!(map.iter().count(), 8);
+    }
+
+    #[test]
+    fn test_get_after_remove_middle() {
+        // Removing one key must not break lookup of keys
+        // that probed past it at insert time.
+        let mut map = smol_map!(i32, i32, 10);
+        for i in 1..=9 {
+            map.put(i, i * 100);
+        }
+        
+        map.remove(5);
+        assert_eq!(map.get(5), None);
+        for i in [1, 2, 3, 4, 6, 7, 8, 9] {
+            assert_eq!(map.get(i), Some(i * 100));
+        }
+    }
+
+    #[test]
+    fn test_put_after_remove_no_duplicate() {
+        // Keys 1 and 6 share home slot 5, so 6 is stored at slot 6.
+        // Removing 1 leaves a hole at 5; putting 6 again must
+        // overwrite slot 6 rather than write a second copy into 5.
+        let mut map = smol_map!(i32, i32, 10);
+        for i in 1..=9 {
+            map.put(i, i + 10);
+        }
+
+        map.remove(1);
+        map.put(6, 99);
+        assert_eq!(map.get(6), Some(99));
+        assert_eq!(map.iter().filter(|e| e.0 == 6).count(), 1);
+
+        map.remove(6);
+        assert_eq!(map.get(6), None);
+    }
+
+    #[test]
+    fn test_len_counts_occupied() {
+        let mut map = smol_map!(i32, i32, 10);
+        assert_eq!(map.iter().count(), 0);
+
+        map.put(1, 10);
+        map.put(2, 20);
+        assert_eq!(map.iter().count(), 2);
+
+        map.remove(1);
+        assert_eq!(map.iter().count(), 1);
+    }
+
+    #[test]
+    fn test_put_full_returns_none() {
+        let mut map = smol_map!(i32, i32, 2);
+        assert!(map.put(1, 10).is_some());
+        assert!(map.put(2, 20).is_some());
+        // map is full: a new key must fail without disturbing occupants
+        assert_eq!(map.put(3, 30), None);
+        assert_eq!(map.get(1), Some(10));
+        assert_eq!(map.get(2), Some(20));
+        assert_eq!(map.get(3), None);
+    }
+
+    #[test]
+    fn test_overwrite_keeps_count() {
+        let mut map = smol_map!(i32, i32, 4);
+        map.put(1, 10);
+        map.put(2, 20);
+        assert_eq!(map.iter().count(), 2);
+
+        map.put(1, 99);
+        assert_eq!(map.get(1), Some(99));
+        assert_eq!(map.iter().count(), 2);
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut map = smol_map!(i32, i32, 10);
+        for i in 1..=5 {
+            map.put(i, i + 10);
+        }
+        assert_eq!(map.iter().count(), 5);
+
+        map.clear();
+        for i in 1..=5 {
+            assert_eq!(map.get(i), None);
+        }
+        assert_eq!(map.iter().count(), 0);
+
+        // map must be reusable after clear
+        map.put(42, 42);
+        assert_eq!(map.get(42), Some(42));
+        assert_eq!(map.iter().count(), 1);
+    }
+
+    #[test]
+    fn test_from_slice_truncates_to_capacity() {
+        let vals: [(i32, i32); 4] = [(1, 10), (2, 20), (3, 30), (4, 40)];
+        let map = SmolMap::<i32, i32, 2, 1>::from(&vals[..]);
+        // must not panic; occupancy never exceeds capacity
+        assert!(map.iter().count() <= 2);
+    }
+
+    #[test]
+    fn test_multiword_bitmap() {
+        // N = 70 needs M = 2 words; exercises the second bitmap word.
+        let mut map = smol_map!(i32, i32, 70);
+        for i in 0..70 {
+            assert!(map.put(i, i + 1).is_some());
+        }
+        for i in 0..70 {
+            assert_eq!(map.get(i), Some(i + 1));
+        }
+        assert_eq!(map.iter().count(), 70);
+
+        assert_eq!(map.remove(0), Some(1));
+        assert_eq!(map.remove(69), Some(70));
+        assert_eq!(map.get(0), None);
+        assert_eq!(map.get(69), None);
+        assert_eq!(map.get(35), Some(36));
+        assert_eq!(map.iter().count(), 68);
+    }
+
+    #[test]
+    fn test_default_eq_new() {
+        let a = SmolMap::<i32, i32, 4, 1>::new();
+        let b = SmolMap::<i32, i32, 4, 1>::default();
+        assert_eq!(a.iter().count(), 0);
+        assert_eq!(b.iter().count(), 0);
+        assert_eq!(a.get(1), None);
+        assert_eq!(b.get(1), None);
+    }
+
+    #[test]
+    fn test_iter_after_remove() {
+        let mut map = smol_map!(i32, i32, 4);
+        map.put(1, 10);
+        map.put(2, 20);
+        map.put(3, 30);
+        map.remove(2);
+
+        let mut seen = [false; 4];
+        for (k, _) in map.iter() {
+            seen[k as usize] = true;
+        }
+        assert!(seen[1]);
+        assert!(!seen[2]);
+        assert!(seen[3]);
+        assert_eq!(map.iter().count(), 2);
     }
 }
